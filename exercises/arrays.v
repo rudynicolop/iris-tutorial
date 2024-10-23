@@ -133,8 +133,15 @@ Lemma inc_spec a l :
     inc #a #(length l)
   {{{RET #(); a ↦∗ ((λ i : Z, #(i + 1)) <$> l)}}}.
 Proof.
-  (* exercise *)
-Admitted.
+  induction l as [| x xs] in a |- *; iIntros (Φ) "Hal HΦ"; simpl; wp_lam; wp_pures.
+  - by iApply "HΦ".
+  - rewrite !array_cons.
+    iDestruct "Hal" as "[Hax Hxs]".
+    wp_load. wp_store. wp_pures.
+    rewrite Nat2Z.inj_succ Z.sub_1_r Z.pred_succ.
+    wp_apply (IHxs with "Hxs").
+    iIntros "Ha1". iApply "HΦ". iFrame.
+Qed.
 
 (* ================================================================= *)
 (** ** Reverse *)
@@ -154,6 +161,16 @@ Definition reverse : val :=
     "last" <- "tmp";;
     "reverse" ("arr" +ₗ #1) ("len" - #2).
 
+Local Lemma stupid [A : Type] (xs : list A) :
+  xs = [] ∨ ∃ ys y, xs = ys ++ [y].
+Proof.
+  induction xs as [| x xs IHxs].
+  - by left.
+  - right. destruct IHxs as [-> | (ys & y & ->)].
+    + by exists [], x.
+    + by exists (x :: ys), y.
+Qed.
+
 (**
   Notice we are not following structural induction on the list of values
   as we remove elements from both the front and the back. As such, you
@@ -165,7 +182,37 @@ Lemma reverse_spec a l :
     reverse #a #(length l)
   {{{RET #(); a ↦∗ rev l}}}.
 Proof.
-  (* exercise *)
-Admitted.
-
+  iIntros (Φ) "Hal HΦ".
+  iLöb as "IH" forall (a l).
+  wp_lam. wp_pures.
+  destruct (decide (length l ≤ 1)%Z) as [Hlen | Hlen].
+  - rewrite bool_decide_eq_true_2 //.
+    wp_pures. iModIntro. iApply "HΦ".
+    destruct l as [| x [| y xs]]; simpl in *; iFrame || lia.
+  - rewrite bool_decide_eq_false_2 //. wp_pures. 
+    assert (∃ x xs, l = x :: xs) as (x & xs & ->).
+    { destruct l as [| y ys]; simpl in *; lia || eauto. }
+    rewrite !array_cons /=. clear Hlen.
+    iDestruct "Hal" as "[Ha Ha1]".
+    wp_load. wp_pures.
+    rewrite Nat2Z.inj_succ Z.sub_1_r Z.pred_succ.
+    wp_bind (! _)%E.
+    destruct (stupid xs) as [-> | (ys & y & ->)].
+    + rewrite /= Loc.add_0.
+      wp_load. do 2 wp_store. wp_pures.
+      wp_lam. wp_pures.
+      iModIntro. iApply "HΦ". iFrame.
+    + rewrite rev_unit last_length array_app !(array_cons _ _ y []) !array_nil.
+      iDestruct "Ha1" as "(Ha1 & Ha1ys & _)".
+      replace (a +ₗ 1 +ₗ length ys) with (a +ₗ S (length ys)).
+      2:{ by rewrite Loc.add_assoc Nat2Z.inj_succ Z.add_1_l. }
+      wp_load. wp_store. wp_store. wp_pures.
+      replace (Z.succ (S (length ys)) - 2)%Z with (Z.of_nat (length ys)) by lia.
+      wp_apply ("IH" with "Ha1").
+      iIntros "Ha1". iApply "HΦ".
+      rewrite /= !array_cons array_app !array_cons !array_nil.
+      replace (a +ₗ 1 +ₗ length (rev ys)) with (a +ₗ S (length ys)).
+      2:{ by rewrite rev_length Loc.add_assoc Nat2Z.inj_succ Z.add_1_l. }
+      iFrame.
+Qed.
 End proofs.
