@@ -478,7 +478,12 @@ Proof.
   rewrite /par_read.
   (** Both threads have the same postcondition, [t_post]. *)
   set t_post := (λ v, (⌜v = #21⌝)%I : iProp Σ).
-  (* exercise *)
-Admitted.
-
+  wp_alloc ℓ as "Hℓ".
+  iMod (pointsto_persist with "Hℓ") as "#Hℓ".
+  wp_pures. wp_bind (par _ _)%E.
+  wp_apply (wp_par t_post t_post).
+  1, 2 : wp_load; wp_pures; done.
+  iIntros (v1 v2) "[-> ->]". iNext.
+  wp_pures. by iApply "HΦ".
+Qed.
 End persistently.
