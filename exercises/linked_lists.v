@@ -65,8 +65,12 @@ Proof.
     wp_pures.
     by iApply "HΦ".
   - (* Induction step: xs = x :: xs' *)
-    (* exercise *)
-Admitted.
+    iIntros (l Φ) "(%hd & %l' & -> & Hhd & HisList) HΦ".
+    wp_rec. wp_pures. wp_load. wp_pures. wp_load.
+    wp_pures. wp_store. iApply (IH with "HisList").
+    iNext. iIntros "HisList".
+    iApply "HΦ". iExists _, _. by iFrame.
+Qed.
 
 (**
   The append function recursively descends [l1], updating the links.
