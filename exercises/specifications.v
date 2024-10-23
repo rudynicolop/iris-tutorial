@@ -158,8 +158,10 @@ Example lambda : expr :=
 Lemma lambda_spec : ⊢ WP lambda {{ v, ⌜v = #20⌝ }}.
 Proof.
   rewrite /lambda.
-  (* exercise *)
-Admitted.
+  repeat (wp_pure; wp_let).
+  wp_let. wp_lam. wp_op. wp_lam. wp_op.
+  iPureIntro. done.
+Qed.
 
 (* ================================================================= *)
 (** ** Resources *)
@@ -297,8 +299,11 @@ Proof.
   wp_cmpxchg_fail.
   wp_proj.
   wp_if.
-  (* exercise *)
-Admitted.
+  wp_load. wp_pures.
+  wp_cmpxchg_suc. wp_pures.
+  wp_load. wp_pures.
+  iModIntro. done.
+Qed.
 
 (**
   We finish this section with a final remark about the points-to
@@ -635,6 +640,7 @@ Definition race_spec (l : loc) (v : val) :=
 (**
   Could we prove this specification similarly to how we proved
   [par_client]?
+   Need invariants.
 *)
 
 End specifications.
