@@ -222,8 +222,9 @@ Qed.
 *)
 Lemma modus_ponens (P Q : iProp Σ) : P -∗ (P -∗ Q) -∗ Q.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "HP HPQ".
+  by iApply "HPQ".
+Qed.
 
 (**
   Just as with Coq tactics, Iris allows nesting of introduction
@@ -236,8 +237,9 @@ Admitted.
 *)
 Lemma sep_assoc_1 (P Q R : iProp Σ) : P ∗ Q ∗ R ⊢ (P ∗ Q) ∗ R.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "(HP & HQ & HR)".
+  iFrame.
+Qed.
 
 (**
   Manually splitting a separation can become tedious. To alleviate this,
@@ -289,8 +291,12 @@ Qed.
 Lemma wand_adj (P Q R : iProp Σ) : (P -∗ Q -∗ R) ⊣⊢ (P ∗ Q -∗ R).
 Proof.
   iSplit.
-  (* exercise *)
-Admitted.
+  - iIntros "HPQR [HP HQ]".
+    iApply ("HPQR" with "HP HQ").
+  - iIntros "HPQR HP HQ".
+    iApply "HPQR".
+    iFrame.
+Qed.
 
 (**
   Disjunctions [∨] are treated just like disjunctions in Coq. The
@@ -301,8 +307,10 @@ Admitted.
 *)
 Lemma or_comm (P Q : iProp Σ) : Q ∨ P ⊢ P ∨ Q.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "[HQ | HP]".
+  - by iRight.
+  - by iLeft.
+Qed.
 
 (**
   We can even prove the usual elimination rule for or-elimination
@@ -311,8 +319,10 @@ Admitted.
 *)
 Lemma or_elim (P Q R : iProp Σ) : (P -∗ R) -∗ (Q -∗ R) -∗ P ∨ Q -∗ R.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "HPR HQR [HP | HQ]".
+  - by iApply "HPR".
+  - by iApply "HQR".
+Qed.
 
 (**
   Separating conjunction distributes over disjunction (for the same
@@ -320,8 +330,12 @@ Admitted.
 *)
 Lemma sep_or_distr (P Q R : iProp Σ) : P ∗ (Q ∨ R) ⊣⊢ P ∗ Q ∨ P ∗ R.
 Proof.
-  (* exercise *)
-Admitted.
+  iSplit.
+  - iIntros "[HP [HQ | HR]]".
+    + iLeft. iFrame.
+    + iRight. iFrame.
+  - iIntros "[[HP HQ]|[HP HR]]"; iFrame.
+Qed.
 
 (**
   Iris has existential and universal quantifiers over any Coq type.
@@ -337,8 +351,8 @@ Proof.
   - iIntros "(HP & %x & HΦ)".
     iExists x.
     iFrame.
-  - (* exercise *)
-Admitted.
+  - iIntros "(%x & HP & HΦx)". iFrame.
+Qed.
 
 (**
   Likewise, forall quantification works almost as in Coq. To introduce
@@ -350,7 +364,10 @@ Admitted.
 Lemma sep_all_distr {A} (P Q : A → iProp Σ) :
   (∀ x, P x) ∗ (∀ x, Q x) -∗ (∀ x, P x ∗ Q x).
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "[HP HQ] %x".
+  iSpecialize ("HP" $! x).
+  iSpecialize ("HQ" $! x).
+  iFrame.
+Qed.
 
 End proofs.
