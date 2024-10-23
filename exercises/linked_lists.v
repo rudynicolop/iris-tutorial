@@ -101,8 +101,17 @@ Lemma append_spec (l1 l2 : val) (xs ys : list val) :
 Proof.
   revert ys l1 l2.
   induction xs as [| x xs' IH]; simpl.
-  (* exercise *)
-Admitted.
+  - iIntros (ys ℓ1 ℓ2 Φ) "[-> Hys] HΦ".
+    wp_lam. wp_pures. by iApply "HΦ".
+  - iIntros (ys ℓ1 ℓ2 Φ) "[(%hd & %l' & -> & Hhd & Hxs') Hys] HΦ".
+    wp_lam. wp_pures. wp_load. wp_pures. wp_load. wp_pures.
+    wp_bind (append _ _)%E.
+    wp_apply (IH with "[$]").
+    iIntros (l) "Hxs'ys". wp_pures.
+    wp_store. wp_pures. iModIntro.
+    iApply "HΦ".
+    iExists _, _. by iFrame.
+Qed.
 
 (**
   We will implement reverse using a helper function called
@@ -134,8 +143,15 @@ Lemma reverse_append_spec (l acc : val) (xs ys : list val) :
 Proof.
   revert l acc ys.
   induction xs as [| x xs' IH]; simpl.
-  (* exercise *)
-Admitted.
+  - iIntros (l acc ys Φ) "[-> Hys] HΦ".
+    wp_lam. wp_pures. by iApply "HΦ".
+  - iIntros (l acc ys Φ) "[(%hd & %l' & -> & Hhd & Hxs') Hys] HΦ".
+    wp_lam. wp_pures.
+    wp_load. wp_pures. wp_load. wp_pures.
+    wp_store. wp_apply (IH _ _ (x :: ys) with "[Hxs' Hys Hhd]"); first by iFrame.
+    iIntros (v) "HisList". iApply "HΦ".
+    by rewrite -app_assoc /=.
+Qed.
 
 (**
   Now, we use the specification of [reverse_append] to prove the
@@ -146,8 +162,13 @@ Lemma reverse_spec (l : val) (xs : list val) :
     reverse l
   {{{ v, RET v; isList v (rev xs) }}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros (Φ) "HisList HΦ". wp_lam.
+  wp_smart_apply (reverse_append_spec _ _ xs [] with "[HisList]").
+  - iFrame. simpl. done.
+  - iIntros (v) "HisList".
+    rewrite app_nil_r.
+    by iApply "HΦ".
+Qed.
 
 (**
   The specifications thus far have been rather straightforward. Now we
@@ -204,8 +225,18 @@ Proof.
   revert a l.
   induction xs as [|x xs IHxs].
   all: simpl.
-  (* exercise *)
-Admitted.
+  - iIntros (a l Φ) "(-> & _ & HI & Hf) HΦ".
+    wp_lam. wp_pures. iApply "HΦ".
+    iModIntro. by iFrame.
+  - iIntros (a l Φ) "((%hd & %l' & -> & Hhd & Hl'xs) & [HP Hxs] & HIa & #Hf) HΦ".
+    wp_lam. wp_pures.
+    wp_load. wp_pures. wp_load. wp_pures.
+    wp_bind (fold_right _ _ _)%E.
+    wp_apply (IHxs with "[$]").
+    iIntros (r) "[Hl'xs HIxsr]".
+    wp_apply ("Hf" with "[$]").
+    iIntros (w) "HI". iApply "HΦ". by iFrame.
+Qed.
 
 (**
   We can now sum over a list simply by folding an addition function over
