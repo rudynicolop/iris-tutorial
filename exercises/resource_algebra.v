@@ -262,14 +262,16 @@ Proof. compute_done. Qed.
 Lemma dfrac_op_both_disc : ∃ x : dfrac,
   DfracBoth (2/3) ⋅ DfracDiscarded = x.
 Proof.
-  (* exercise *)
-Admitted.
+  exists (DfracBoth (2/3)).
+  compute_done.
+Qed.
 
 Lemma dfrac_op_frac_both : ∃ x : dfrac,
   DfracOwn (1/4) ⋅ DfracBoth (2/4) = x.
 Proof.
-  (* exercise *)
-Admitted.
+  exists (DfracBoth (3/4)).
+  compute_done.
+Qed.
 
 (**
   As dfrac is a record of type [RAMixin], we know that [⋅] must be
@@ -287,8 +289,9 @@ Qed.
 Lemma dfrac_op_comm (dq1 dq2 : dfrac) :
   dq1 ⋅ dq2 = dq2 ⋅ dq1.
 Proof.
-  (* exercise *)
-Admitted.
+  rewrite dfrac_ra_mixin.(ra_comm _).
+  done.
+Qed.
 
 (* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - *)
 (** **** Valid Elements (the [Valid A]) *)
@@ -541,8 +544,12 @@ Proof.
   assert ((DfracBoth (1 / 4)) = (DfracDiscarded ⋅? Some (DfracOwn (1 / 4)))) as ->.
   { compute_done. }
   rewrite cmra_opM_opM_assoc_L.
-  (* exercise *)
-Admitted.
+  rewrite cmra_op_opM_assoc  in Hvalid.
+  assert (✓ (DfracOwn (1/2) ⋅? (Some (DfracOwn (1 / 4)) ⋅ mz))) as Hvalid' by by rewrite Some_op_opM /=.
+  pose proof (dfrac_discard_update (DfracOwn (1/2))) as H.
+  rewrite cmra_discrete_update in H.
+  apply H, Hvalid'.
+Qed.
 
 (* ================================================================= *)
 (** ** Example Resource Algebra *)
