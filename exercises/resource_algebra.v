@@ -766,8 +766,19 @@ Local Lemma to_agree_included (a b : A) :
   to_agree a ≼ to_agree b ↔ a ≡ b.
 Proof.
   split.
-  (* exercise *)
-Admitted.
+  - intros [c Habc].
+    pose proof agree_valid b as Hb.
+    rewrite Habc in Hb.
+    pose proof cmra_valid_op_r _ _ Hb as [z Hz]%to_agree_uninj.
+    rewrite -Hz in Hb.
+    apply to_agree_op_valid in Hb.
+    rewrite -Hz -Hb agree_idemp in Habc. 
+    apply to_agree_op_valid.
+    rewrite Habc agree_idemp.
+    apply agree_valid.
+  - intros Hab%to_agree_op_valid. exists (to_agree b).
+    by rewrite cmra_comm agree_valid_opL // cmra_comm.
+Qed.
 
 (**
   The usefulness of the agree construction is demonstrated by the fact
