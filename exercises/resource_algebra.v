@@ -767,14 +767,8 @@ Local Lemma to_agree_included (a b : A) :
 Proof.
   split.
   - intros [c Habc].
-    pose proof agree_valid b as Hb.
-    rewrite Habc in Hb.
-    pose proof cmra_valid_op_r _ _ Hb as [z Hz]%to_agree_uninj.
-    rewrite -Hz in Hb.
-    apply to_agree_op_valid in Hb.
-    rewrite -Hz -Hb agree_idemp in Habc. 
     apply to_agree_op_valid.
-    rewrite Habc agree_idemp.
+    rewrite Habc assoc agree_idemp -Habc.
     apply agree_valid.
   - intros Hab%to_agree_op_valid. exists (to_agree b).
     by rewrite cmra_comm agree_valid_opL // cmra_comm.
@@ -1082,8 +1076,9 @@ Lemma own_dfrac_both_disc (γ : gname) :
   own γ (DfracBoth (2/3)) ⊢
   (own γ (DfracBoth (2/3))) ∗ (own γ DfracDiscarded).
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "Hγ".
+  by rewrite -own_op /op /cmra_op /=.
+Qed.
 
 (* ----------------------------------------------------------------- *)
 (** *** Update Modality *)
@@ -1164,8 +1159,9 @@ Qed.
 
 Lemma upd_idemp (P : iProp Σ): (|==> |==> P) ⊢ |==> P.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "HP".
+  by iMod "HP".
+Qed.
 
 (* ----------------------------------------------------------------- *)
 (** *** Allocation and Updates *)
@@ -1198,8 +1194,8 @@ Qed.
 
 Lemma dfrac_alloc_one : ⊢ |==> ∃ γ, own γ (DfracOwn 1).
 Proof.
-  (* exercise *)
-Admitted.
+  apply own_alloc, dfrac_valid_own_1.
+Qed.
 
 (**
   After having allocated new resources, we may update them using the
@@ -1234,7 +1230,7 @@ Qed.
 Lemma hoare_triple_dfrac (γ : gname):
   {{{ own γ (DfracOwn 1) }}} #1 + #1 {{{v , RET v; own γ DfracDiscarded }}}.
 Proof.
-  (* exercise *)
+  iIntros "".
 Admitted.
 
 End ghost.
