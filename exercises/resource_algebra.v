@@ -1230,7 +1230,7 @@ Qed.
 Lemma hoare_triple_dfrac (γ : gname):
   {{{ own γ (DfracOwn 1) }}} #1 + #1 {{{v , RET v; own γ DfracDiscarded }}}.
 Proof.
-  iIntros "".
-Admitted.
-
+  iIntros (Φ) "Hγ HΦ". wp_pures.
+  iApply "HΦ". iApply (own_dfrac_update with "Hγ").
+Qed.
 End ghost.
