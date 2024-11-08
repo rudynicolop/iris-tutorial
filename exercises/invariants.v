@@ -359,8 +359,12 @@ Proof.
     }
     (** ... and finish the proof of the forked thread. *)
     done.
-  - (* exercise *)
-Admitted.
+  - wp_pures.
+    iInv "Hinv" as ">(%v & Hlv & %Hv)" "Hclose".
+    wp_load. iMod ("Hclose" with "[Hlv]") as "_".
+    { iNext. by iFrame. }
+    by iApply "HΦ".
+Qed.
 
 End proofs.
 
