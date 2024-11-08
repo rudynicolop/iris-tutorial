@@ -196,14 +196,23 @@ Qed.
 Lemma mk_counter_spec :
   {{{ True }}} mk_counter #() {{{ c γ, RET c; is_counter c γ 0}}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros (Φ) "_ HΦ".
+  wp_lam. wp_alloc ℓ as "Hℓ".
+  iMod alloc_initial_state as (γ) "[Hγ● Hγ◯]".
+  iMod (inv_alloc N _ (∃ m : nat, ℓ ↦ #m ∗ own γ (● MaxNat m)) with "[Hℓ Hγ●]") as "Hinv"; first eauto with iFrame.
+  iApply "HΦ". iModIntro. by iFrame.
+Qed.
 
 Lemma read_spec c γ n :
   {{{ is_counter c γ n }}} read c {{{ (u : nat), RET #u; ⌜n ≤ u⌝ }}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros (Φ) "(%ℓ & -> & Hγ◯ & #Hinv) HΦ".
+  wp_lam. iInv "Hinv" as (m) "[Hℓm Hγ●]" "Hclose".
+  wp_load. iDestruct (state_valid with "Hγ● Hγ◯") as %Hvalid.
+  iMod ("Hclose" with "[Hℓm Hγ●]") as "_".
+  { iNext. eauto with iFrame. }
+  by iApply "HΦ".
+Qed.
 
 Lemma incr_spec c γ n :
   {{{ is_counter c γ n }}}
@@ -227,6 +236,14 @@ Proof.
     injection e as e.
     apply (inj Z.of_nat) in e.
     subst m'.
+    iDestruct (state_valid with "Hγ Hγ'") as %Hvalid.
+    iMod (update_state with "Hγ") as "[Hγ● Hγ◯]".
+    iModIntro. iSplitL "Hl Hγ●".
+    { iNext. iExists (S m).
+      replace (Z.of_nat (S m)) with (Z.of_nat m + 1)%Z by lia.
+      iFrame. }
+    wp_pures. iApply "HΦ". iFrame "%".
+    iModIntro. rewrite /is_counter. iExists l. 
     (* exercise *)
 Admitted.
 
