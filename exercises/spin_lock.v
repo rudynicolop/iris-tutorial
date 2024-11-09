@@ -180,8 +180,13 @@ Qed.
 Lemma release_spec γ v P :
   {{{ is_lock γ v P ∗ locked γ ∗ P }}} release v {{{ RET #(); True }}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros (Φ) "((%ℓ & -> & #Hinv) & Hlocked & HP) HΦ". wp_lam.
+  iInv "Hinv" as ([]) "[>Hℓ H]" "Hclose".
+  - wp_store. iMod ("Hclose" with "[$Hℓ $Hlocked $HP]") as "_".
+    by iApply "HΦ".
+  - iDestruct "H" as "[>Hlocked' HP']".
+    iDestruct (locked_excl with "Hlocked Hlocked'") as %[].
+Qed.
 
 (* ================================================================= *)
 (** ** Example Client *)
