@@ -464,47 +464,75 @@ Qed.
 Lemma mk_counter_spec :
   {{{ True }}} mk_counter #() {{{ c γ, RET c; is_counter c γ 0 1}}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros (Φ) "_ HΦ". wp_lam.
+  wp_alloc ℓ as "Hℓ".
+  iMod alloc_initial_state as (γ) "[Hγ● Hγ◯]".
+  iMod (inv_alloc N _ (∃ m : nat, ℓ ↦ #m ∗ own γ (● Some (1%Qp, m)))%I with "[Hℓ Hγ●]") as "#HInv".
+  { iNext. eauto with iFrame. }
+  iApply ("HΦ" $! #ℓ γ).
+  iModIntro. rewrite /is_counter.
+  by iFrame "# ∗".
+Qed.
 
 Lemma read_spec (c : val) (γ : gname) (n : nat) (q : Qp) :
   {{{ is_counter c γ n q }}}
     read c
   {{{ (u : nat), RET #u; is_counter c γ n q ∗ ⌜n ≤ u⌝ }}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros (Φ) "(%ℓ & -> & Hγ◯ & #Hinv) HΦ".
+  wp_lam. iInv "Hinv" as (m) ">[Hℓm Hγ●]" "Hclose".
+  iDestruct (state_valid with "Hγ● Hγ◯") as %Hvalid.
+  wp_load. iMod ("Hclose" with "[Hℓm Hγ●]") as "_".
+  { iNext. eauto with iFrame. }
+  iApply "HΦ". iModIntro. by iFrame "% # ∗".
+Qed.
 
 Lemma read_spec_full (c : val) (γ : gname) (n : nat) :
   {{{ is_counter c γ n 1 }}} read c {{{ RET #n; is_counter c γ n 1 }}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros (Φ) "(%ℓ & -> & Hγ◯ & #Hinv) HΦ".
+  wp_lam. iInv "Hinv" as (m) ">[Hℓm Hγ●]" "Hclose".
+  iDestruct (state_valid_full with "Hγ● Hγ◯") as %->.
+  wp_load. iMod ("Hclose" with "[Hℓm Hγ●]") as "_".
+  { iNext. eauto with iFrame. }
+  iApply "HΦ". iModIntro. rewrite /is_counter.
+  by iFrame "# ∗".
+Qed.
 
 Lemma incr_spec (c : val) (γ : gname) (n : nat) (q : Qp) :
   {{{ is_counter c γ n q }}}
     incr c
   {{{ (u : nat), RET #u; ⌜n ≤ u⌝ ∗ is_counter c γ (S n) q }}}.
 Proof.
-  iIntros "%Φ (%l & -> & Hγ' & #I) HΦ".
+  iIntros "%Φ (%l & -> & Hγ◯ & #I) HΦ".
   iLöb as "IH".
   wp_rec.
   wp_bind (! _)%E.
-  iInv "I" as "(%m & Hl & Hγ)".
+  iInv "I" as "(%m & Hl & Hγ●)".
   wp_load.
   iModIntro.
-  iSplitL "Hl Hγ".
+  iSplitL "Hl Hγ●".
   { iExists m. iFrame. }
   wp_pures.
   wp_bind (CmpXchg _ _ _).
-  iInv "I" as "(%m' & Hl & Hγ)".
-  destruct (decide (# m = # m')).
-  - injection e as e.
-    apply (inj Z.of_nat) in e.
-    subst m'.
-    wp_cmpxchg_suc.
-    (* exercise *)
-Admitted.
+  iInv "I" as "(%m' & Hl & Hγ●)" "Hclose".
+  destruct (decide (m = m')) as [<- | Hneq].
+  - wp_cmpxchg_suc.
+    iDestruct (state_valid with "Hγ● Hγ◯") as %Hvalid.
+    iMod (update_state with "[$Hγ● $Hγ◯]") as "[Hγ● Hγ◯]".
+    iMod ("Hclose" with "[Hl Hγ●]") as "_".
+    { iNext. iExists (S m).
+      replace (Z.of_nat m + 1)%Z with (Z.of_nat (S m)) by lia.
+      iFrame. }
+    iModIntro. wp_pures. iApply "HΦ". rewrite /is_counter.
+    iModIntro. by iFrame "# ∗".
+  - wp_cmpxchg_fail.
+    { intros [= ->%Nat2Z.inj']. contradiction. }
+    iMod ("Hclose" with "[Hl Hγ●]") as "_".
+    { iNext. eauto with iFrame. }
+    iModIntro. wp_pures.
+    wp_apply ("IH" with "Hγ◯ HΦ").
+Qed.
 
 End spec2.
 End spec2.
