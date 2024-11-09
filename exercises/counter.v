@@ -289,8 +289,25 @@ Lemma par_incr :
     read "c"
   {{{ n, RET #(S n); True }}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros (Φ) "_ HΦ".
+  wp_apply mk_counter_spec as (c γ) "#Hcounter"; first done.
+  wp_pures. wp_bind (par _ _)%E.
+  wp_apply (par_spec
+  (λ v, ∃ u : nat, ⌜v = #u⌝ ∗ (*⌜n ≤ u⌝ ∗*) is_counter c γ 1)%I
+  (λ v, ∃ u : nat, ⌜v = #u⌝ ∗ (*⌜n ≤ u⌝ ∗*) is_counter c γ 1)%I
+  with "[] [] [HΦ]").
+  - wp_lam. wp_apply (incr_spec with "Hcounter").
+    iIntros (u) "[_ Hc1]". eauto with iFrame.
+  - wp_lam. wp_apply (incr_spec with "Hcounter").
+    iIntros (u) "[_ Hc1]". eauto with iFrame.
+  - iNext. iIntros (v1 v2) "[(%u1 & -> & #Hc1) (%u2 & -> & #Hc2)]".
+    iNext. wp_pures.
+    wp_apply (read_spec with "Hc1 [HΦ]").
+    iNext. iIntros (u Hu).
+    iSpecialize ("HΦ" $! (u-1)).
+    replace (S (u-1)) with u by lia.
+    by iApply "HΦ".
+Qed.
 
 End spec1.
 End spec1.
