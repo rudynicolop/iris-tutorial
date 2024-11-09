@@ -185,6 +185,24 @@ Proof.
   by apply le_S.
 Qed.
 
+Lemma state_frag_persistent γ n :
+  Persistent (own γ (◯ MaxNat n)).
+Proof.
+  apply own_core_persistent.
+  apply auth_frag_core_id.
+  by constructor.
+Qed.
+
+Lemma weaken_state_frag γ m n :
+  n ≤ m →
+  own γ (◯ MaxNat m) ⊢ own γ (◯ MaxNat n).
+Proof.
+  iIntros (Hnm) "Hγ◯".
+  replace (MaxNat m) with (MaxNat m ⋅ MaxNat n) by rewrite max_nat_op Nat.max_l //.
+  rewrite auth_frag_op own_op.
+  by iDestruct "Hγ◯" as "[_ Hγ◯]".
+Qed.
+
 (* ================================================================= *)
 (** ** Proving the Counter Specification *)
 
@@ -230,22 +248,27 @@ Proof.
   { iExists m. iFrame. }
   wp_pures.
   wp_bind (CmpXchg _ _ _).
-  iInv "HI" as "(%m' & Hl & Hγ)".
-  destruct (decide (#m = #m')) as [e | ne].
+  iInv "HI" as "(%m' & Hl & Hγ)" "Hclose".
+  destruct (decide (m = m')) as [<- | ne].
   - wp_cmpxchg_suc.
-    injection e as e.
-    apply (inj Z.of_nat) in e.
-    subst m'.
     iDestruct (state_valid with "Hγ Hγ'") as %Hvalid.
     iMod (update_state with "Hγ") as "[Hγ● Hγ◯]".
-    iModIntro. iSplitL "Hl Hγ●".
+    iMod ("Hclose" with "[Hl Hγ●]") as "_".
     { iNext. iExists (S m).
       replace (Z.of_nat (S m)) with (Z.of_nat m + 1)%Z by lia.
       iFrame. }
-    wp_pures. iApply "HΦ". iFrame "%".
+    iModIntro. wp_pures.
+    iApply "HΦ". iFrame "%".
     iModIntro. rewrite /is_counter. iExists l. 
-    (* exercise *)
-Admitted.
+    iSplit; first done. iFrame "#".
+    iApply (weaken_state_frag with "Hγ◯"). lia.
+  - wp_cmpxchg_fail.
+    { intros [= ->%Nat2Z.inj']. contradiction. }
+    iMod ("Hclose" with "[Hl Hγ]") as "_".
+    { iNext. iExists m'. iFrame. }
+    iModIntro. wp_pures.
+    by iApply "IH".
+Qed.
 
 (* ================================================================= *)
 (** ** A Simple Counter Client *)
