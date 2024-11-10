@@ -66,7 +66,7 @@ Definition RA : cmra := authR (gsetR natR).
 From iris.algebra Require Import lib.excl_auth.
 
 Section proofs.
-Context `{!heapGS Σ, !inG Σ (excl_authR nat), !inG Σ (authR (gset_disjR natR))}.
+Context `{!heapGS Σ, !inG Σ (excl_authR nat), !inG Σ (authR (gset_disjR natR)), !inG Σ (authR (max_natR))}.
 Let N := nroot .@ "ticket_lock".
 
 (**
@@ -96,52 +96,75 @@ Qed.
 Definition issued (γ : gname) (x : nat) : iProp Σ :=
   own γ (◯ GSet {[ x ]}).
 
-Definition lock_inv (α γ : gname) (lo ln : loc) (P : iProp Σ) : iProp Σ :=
+Definition lock_inv (α β γ δ : gname) (lo ln : loc) (P : iProp Σ) : iProp Σ :=
   ∃ (o n : nat) (is_locked : bool),
   ⌜o ≤ n⌝ ∗ lo ↦ #o ∗ ln ↦ #n ∗
   own γ (● GSet (list_to_set (seq o (n - o)))) ∗ own α (●E o) ∗
+  own β (● MaxNat o) ∗ own δ (● MaxNat n) ∗
   if is_locked then True else P ∗ locked_by α o.
 
-Definition is_lock (α γ : gname) (l : val) (P : iProp Σ) : iProp Σ :=
-  ∃ lo ln : loc, ⌜l = (#lo, #ln)%V⌝ ∗ inv N (lock_inv α γ lo ln P).
+Definition is_lock (α β γ δ : gname) (l : val) (P : iProp Σ) : iProp Σ :=
+  ∃ lo ln : loc, ⌜l = (#lo, #ln)%V⌝ ∗ inv N (lock_inv α β γ δ lo ln P).
 
 (* ================================================================= *)
 (** ** Specifications *)
 
 Lemma mk_lock_spec P :
-  {{{ P }}} mk_lock #() {{{ α γ l, RET l; is_lock α γ l P }}}.
+  {{{ P }}} mk_lock #() {{{ α β γ δ l, RET l; is_lock α β γ δ l P }}}.
 Proof.
   iIntros (Φ) "HP HΦ". wp_lam.
   wp_alloc ln as "Hln". wp_alloc lo as "Hlo".
   iMod (own_alloc (●E 0 ⋅ ◯E 0)) as (α) "[Hγ● Hγ◯]"; first apply excl_auth_valid.
   iMod (own_alloc (● GSet (list_to_set (seq 0 (0 - 0))))) as (γ) "Hγ".
   { by rewrite auth_auth_valid /=. }
+  iMod (own_alloc (● MaxNat 0)) as (β) "Hβ●".
+  { by rewrite auth_auth_valid. }
+  iMod (own_alloc (● MaxNat 0)) as (δ) "Hδ●".
+  { by rewrite auth_auth_valid. }
   wp_pures.
-  iMod (inv_alloc N _ (lock_inv α γ lo ln P) with "[-HΦ]") as "#HInv".
+  iMod (inv_alloc N _ (lock_inv α β γ δ lo ln P) with "[-HΦ]") as "#HInv".
   { iNext. iFrame. iExists false. iFrame. iPureIntro. lia. }
-  iModIntro. iApply ("HΦ" $! α γ). by iFrame "#".
+  iModIntro. iApply ("HΦ" $! α β γ δ). by iFrame "#".
 Qed.
 
-Lemma wait_spec α γ l P x :
-  {{{ is_lock α γ l P ∗ issued γ x }}}
+Lemma wait_spec α β γ δ l P x :
+  {{{ is_lock α β γ δ l P ∗ issued γ x }}}
     wait #x l
   {{{ RET #(); locked α ∗ P }}}.
 Proof.
   iIntros (Φ) "[(%lo & %ln & -> & #HInv) Hγ◯x] HΦ".
   iLöb as "IH". wp_lam. wp_pures. wp_bind (! _)%E.
-  iInv "HInv" as (o n is_locked) "(>%Hon & >Hlo & >Hln & >Hγ● & >Hα● & H)" "Hclose".
+  iInv "HInv" as (o n is_locked) "(>%Hon & >Hlo & >Hln & >Hγ● & >Hα● & >Hβ● & >Hδ● & H)" "Hclose".
   iCombine "Hγ● Hγ◯x" gives %Hvalid.
   rewrite auth_both_valid_discrete in Hvalid.
   destruct Hvalid as [Hsub Hvalid].
   rewrite gset_disj_included singleton_subseteq_l elem_of_list_to_set elem_of_seq in Hsub.
   assert (o ≤ x < n) as Hoxn by lia. wp_load.
+  iMod (own_update _ _ (● (MaxNat o) ⋅ ◯ (MaxNat o)) with "Hβ●") as "[Hβ● #Hβ◯o]".
+  { apply auth_update_alloc.
+    apply max_nat_local_update. simpl. lia. }
+  iMod (own_update _ _ (● (MaxNat n) ⋅ ◯ (MaxNat n)) with "Hδ●") as "[Hδ● #Hδ◯n]".
+  { apply auth_update_alloc.
+    apply max_nat_local_update. simpl. lia. }
   iMod ("Hclose" with "[-HΦ Hγ◯x]") as "_".
   { iNext. by iFrame. }
   iModIntro. wp_pures.
   destruct (decide (o = x)) as [-> | H_o_neq_x].
   - rewrite bool_decide_eq_true_2 //. wp_pures.
     clear is_locked.
-    iInv "HInv" as (y z is_locked) "(>%Hyz & >Hlo & >Hln & >Hγ● & >Hα● & H)" "Hclose".
+    iInv "HInv" as (y z is_locked) "(>%Hyz & >Hlo & >Hln & >Hγ● & >Hα● & >Hβ● & >Hδ● & H)" "Hclose".
+  iCombine "Hγ● Hγ◯x" gives %Hvalid'.
+  rewrite auth_both_valid_discrete in Hvalid'.
+  destruct Hvalid' as [Hsub' Hvalid'].
+  rewrite gset_disj_included singleton_subseteq_l elem_of_list_to_set elem_of_seq in Hsub'.
+  assert (y ≤ x < z) as Hyxz by lia.
+  iCombine "Hβ● Hβ◯o" gives %Hvalido.
+  rewrite auth_both_valid_discrete max_nat_included /= in Hvalido.
+  destruct Hvalido as [Hxy _].
+  iCombine "Hδ● Hδ◯n" gives %Hvalidn.
+  rewrite auth_both_valid_discrete max_nat_included /= in Hvalidn.
+  destruct Hvalidn as [Hnz _].
+  assert (x = y) as <- by lia.
 Admitted.
 
 Lemma acquire_spec γ l P :
