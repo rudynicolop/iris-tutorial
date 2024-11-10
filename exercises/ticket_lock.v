@@ -61,8 +61,7 @@ Definition release : val :=
   specifications to figure out exactly what needs to be proven.
 *)
 
-Definition RA : cmra
-  (* := insert your definition here *). Admitted.
+Definition RA : cmra := authR (gsetR natR).
 
 Section proofs.
 Context `{!heapGS Σ, !inG Σ RA}.
@@ -90,8 +89,8 @@ Admitted.
   _issued_. A thread will need to have been issued ticket [x] in order
   to wait for the first counter to become [x].
 *)
-Definition issued (γ : gname) (x : nat) : iProp Σ
-  (* := insert your definition here *). Admitted.
+Definition issued (γ : gname) (x : nat) : iProp Σ :=
+  own γ (◯ {[ x ]}).
 
 Definition lock_inv (γ : gname) (lo ln : loc) (P : iProp Σ) : iProp Σ
   (* := insert your definition here *). Admitted.
