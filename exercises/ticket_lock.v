@@ -181,11 +181,54 @@ Proof.
     iApply ("IH" with "[$] [$]").
 Qed.
 
-Lemma acquire_spec γ l P :
-  {{{ is_lock γ l P }}} acquire l {{{ RET #(); locked γ ∗ P }}}.
+Lemma acquire_spec α β γ δ l P :
+  {{{ is_lock α β γ δ l P }}} acquire l {{{ RET #(); locked α ∗ P }}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros (Φ) "(%lo & %ln & -> & #HInv) HΦ".
+  iLöb as "IH". wp_lam. wp_pures. wp_bind (! _)%E.
+  iInv "HInv" as (o n) "(>%Hon & >Hlo & >Hln & >Hγ● & >Hα● & >Hβ● & >Hδ● & H)" "Hclose".
+  wp_load.
+  iMod (own_update _ _ (● (MaxNat o) ⋅ ◯ (MaxNat o)) with "Hβ●") as "[Hβ● #Hβ◯o]".
+  { apply auth_update_alloc.
+    apply max_nat_local_update. simpl. lia. }
+  iMod (own_update _ _ (● (MaxNat n) ⋅ ◯ (MaxNat n)) with "Hδ●") as "[Hδ● #Hδ◯n]".
+  { apply auth_update_alloc.
+    apply max_nat_local_update. simpl. lia. }
+  iMod ("Hclose" with "[-HΦ]") as "_".
+  { iNext. by iFrame. }
+  iModIntro. wp_pures. wp_bind (CmpXchg _ _ _)%E.
+  iInv "HInv" as (y z) "(>%Hyz & >Hlo & >Hln & >Hγ● & >Hα● & >Hβ● & >Hδ● & H)" "Hclose".
+  destruct (decide (z = n)%nat) as [-> | H_z_neq_n].
+  - wp_cmpxchg_suc.
+    iMod (own_update _ _ (● GSet (list_to_set (seq y (n + 1 - y))) ⋅ ◯ GSet {[n]}) with "Hγ●") as "[Hγ● Hγ◯]".
+    { apply auth_update_alloc.
+      replace (seq y (n + 1 - y)) with (seq y (n - y) ++ [n]).
+      2:{ replace (n + 1 - y) with (S (n - y)) by lia.
+        rewrite seq_S. f_equal. f_equal. lia. }
+      rewrite list_to_set_app_L /=.
+      replace ({[n]} ∪ ∅) with ({[n]} : gset nat) by set_solver.
+      rewrite union_comm_L.
+      apply gset_disj_alloc_empty_local_update.
+      rewrite list_to_set_seq.
+      replace n with (y + (n - y)) at 1 by lia.
+      apply set_seq_S_end_disjoint. }
+    iMod (own_update _ _ (● MaxNat (n + 1)) with "Hδ●") as "Hδ●".
+    { eapply auth_update_auth.
+      apply max_nat_local_update.
+      simpl. lia. }
+    iMod ("Hclose" with "[-HΦ Hγ◯]") as "_".
+    { iNext. iFrame.
+      replace (Z.of_nat (n + 1)) with (Z.of_nat n + 1)%Z by lia.
+      iFrame. iPureIntro. lia. }
+    iModIntro. wp_pures.
+    wp_apply (wait_spec with "[$HInv $Hγ◯]"); first done.
+    iApply "HΦ".
+  - wp_cmpxchg_fail; first by intros [= ->%Nat2Z.inj].
+    iMod ("Hclose" with "[-HΦ]") as "_".
+    { iNext. by iFrame. }
+    iModIntro. wp_pures.
+    by wp_apply "IH".
+Qed.
 
 Lemma release_spec γ l P :
   {{{ is_lock γ l P ∗ locked γ ∗ P }}} release l {{{ RET #(); True }}}.
