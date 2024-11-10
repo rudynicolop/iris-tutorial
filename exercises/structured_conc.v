@@ -452,7 +452,18 @@ Proof.
       by apply Zeven_plus_Zeven.
     }
     by iApply "HΦ'".
-  (* exercise *)
-Admitted.
+  - iIntros (Ψ) "!> _  HΨ".
+    iInv "I" as (z) ">[Hrz %Hevenz]" "Hclose".
+    wp_faa. iMod ("Hclose" with "[Hrz]") as "_".
+    { iNext. iExists _. iFrame. iPureIntro.
+      by apply Zeven_plus_Zeven. }
+    by iApply "HΨ".
+  - done.
+  - iIntros (v1 v2) "_". wp_pures.
+    iInv "I" as (z) ">[Hrz %Hevenz]" "Hclose".
+    wp_load. iMod ("Hclose" with "[Hrz]") as "_".
+    { iNext. iExists _. by iFrame. }
+    by iApply "HΦ".
+Qed.
 
 End parallel_add.
