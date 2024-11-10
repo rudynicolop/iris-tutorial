@@ -230,10 +230,44 @@ Proof.
     by wp_apply "IH".
 Qed.
 
-Lemma release_spec γ l P :
-  {{{ is_lock γ l P ∗ locked γ ∗ P }}} release l {{{ RET #(); True }}}.
+Lemma release_spec α β γ δ l P :
+  {{{ is_lock α β γ δ l P ∗ locked α ∗ P }}} release l {{{ RET #(); True }}}.
 Proof.
-  (* exercise *)
+  iIntros (Φ) "((%lo & %ln & -> & #HInv) & [%m Hα◯] & HP) HΦ".
+  wp_lam. wp_pures. wp_bind (! _)%E.
+  iInv "HInv" as (o n) "(>%Hon & >Hlo & >Hln & >Hγ● & >Hα● & >Hβ● & >Hδ● & H)" "Hclose".
+  iCombine "Hα● Hα◯" gives %<-%excl_auth_agree_L.
+  wp_load. iMod ("Hclose" with "[- HΦ Hα◯ HP]") as "_".
+  { iNext. by iFrame. }
+  iModIntro. wp_pures.
+  iInv "HInv" as (y z) "(>%Hyz & >Hlo & >Hln & >Hγ● & >Hα● & >Hβ● & >Hδ● & H)" "Hclose".
+  iCombine "Hα● Hα◯" gives %->%excl_auth_agree_L.
+  wp_store.
+  iMod (own_update_2 _ _ _ (●E (o+1) ⋅ ◯E (o+1)) with "Hα● Hα◯") as "[Hα● Hα◯]"; first apply excl_auth_update.
+  iMod (own_update _ _ (● MaxNat (o + 1)) with "Hβ●") as "Hβ●".
+  { eapply auth_update_auth.
+    apply max_nat_local_update.
+    simpl. lia. }
+  iDestruct "H" as "[Hγ◯ | [HP' Hα◯o]]".
+  2:{ iCombine "Hα◯ Hα◯o" gives %Hinvalid.
+    by rewrite excl_auth_frag_op_valid in Hinvalid. }
+  iMod (own_update_2 _ _ _ (●GSet (list_to_set (seq (o + 1) (z - (o + 1))))) with "Hγ● Hγ◯") as "Hγ●".
+  { do 2 rewrite list_to_set_seq.
+    replace (set_seq (o + 1) (z - (o + 1))) with (set_seq o (z - o) ∖ {[o]} : gset nat).
+    2:{ Search set_seq (_ ∪ _). admit. }
+    apply auth_update_dealloc.
+    apply gset_disj_dealloc_local_update. }
+  iMod ("Hclose" with "[- HΦ]") as "_".
+  { iNext. iFrame.
+    replace (Z.of_nat (o + 1)) with (Z.of_nat o + 1)%Z by lia.
+    iFrame. iSplitR.
+    - 
+    (* TODO: cannot prove that [o + 1 ≤ z].
+       Perhaps [issued γ x := own γ (◯ {[x]}) is actually:
+       [issued γ δ x := own γ (◯ {[x]}) ∗ own δ (◯ MaxNat (x + 1))] *)
+      admit.
+    - iRight. iFrame. }
+  iModIntro. by iApply "HΦ".
 Admitted.
 
 End proofs.
