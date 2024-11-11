@@ -252,23 +252,18 @@ Proof.
   iCombine "Hδ● Hδ◯" gives %Hvalidzo.
   rewrite auth_both_valid_discrete max_nat_included /= in Hvalidzo.
   destruct Hvalidzo as [Hoz _].
-  iMod (own_update_2 _ _ _ (●GSet (list_to_set (seq (o + 1) (z - (o + 1))))) with "Hγ● Hγ◯") as "Hγ●".
-  { do 2 rewrite list_to_set_seq.
-    replace (set_seq (o + 1) (z - (o + 1))) with (set_seq o (z - o) ∖ {[o]} : gset nat).
-    2:{ Search set_seq (_ ∪ _). admit. }
-    apply auth_update_dealloc.
-    apply gset_disj_dealloc_local_update. }
+  iMod (own_update_2 _ _ _ (●GSet (set_seq (o + 1) (z - (o + 1)))) with "Hγ● Hγ◯") as "Hγ●".
+  { replace (set_seq (o + 1) (z - (o + 1))) with (set_seq o (z - o) ∖ {[o]} : gset nat).
+  2:{ replace (z - o) with (1 + (z - (o + 1))) by lia.
+    rewrite set_seq_add_L /= union_empty_r_L difference_union_distr_l_L difference_diag_L union_empty_l_L difference_disjoint_L; first done.
+    rewrite disjoint_singleton_r elem_of_set_seq. lia. }
+  apply auth_update_dealloc.
+  apply gset_disj_dealloc_local_update. }
   iMod ("Hclose" with "[- HΦ]") as "_".
   { iNext. iFrame.
     replace (Z.of_nat (o + 1)) with (Z.of_nat o + 1)%Z by lia.
-    iFrame. iSplitR.
-    - 
-    (* TODO: cannot prove that [o + 1 ≤ z].
-       Perhaps [issued γ x := own γ (◯ {[x]}) is actually:
-       [issued γ δ x := own γ (◯ {[x]}) ∗ own δ (◯ MaxNat (x + 1))] *)
-      admit.
-    - iRight. iFrame. }
+    iFrame "% # ∗". iRight. iFrame. }
   iModIntro. by iApply "HΦ".
-Admitted.
+Qed.
 
 End proofs.
