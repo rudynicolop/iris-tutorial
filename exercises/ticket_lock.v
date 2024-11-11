@@ -321,13 +321,36 @@ Module test.
       iAssert (par_inv ℓ γ₁ γ₂) with "[Hℓ Hγ₁● Hγ₂●]" as "HI"; first by iFrame.
       wp_apply (mk_lock_spec with "HI") as (α β γ δ lock) "#Hlock".
       wp_pures.
-      About wp_par.
       wp_apply (wp_par
       (λ _, own γ₁ (◯E true))%I
       (λ _, own γ₂ (◯E true))%I
       with "[Hγ₁◯] [Hγ₂◯] [HΦ]").
       - wp_apply (with_lock_spec _ (own γ₁ (◯E false)) (λ _, own γ₁ (◯E true)) with "[] [$Hγ₁◯ $Hlock]"); last (iIntros "_ Hγ₁◯"; by iFrame).
-        iIntros (Ψ) "[(%t₁ & %t₂ & %z & H)]".
-    Admitted.
+        iIntros (Ψ) "!> [(%t₁ & %t₂ & %z & Hℓz & Hγ₁● & Hγ₂● & H) Hγ₁◯] HΨ".
+        wp_load. wp_pures. wp_store.
+        iCombine "Hγ₁● Hγ₁◯" gives %->%excl_auth_agree_L.
+        iMod (own_update_2 _ _ _ (●E true ⋅ ◯E true) with "Hγ₁● Hγ₁◯") as "[Hγ₁● Hγ₁◯]"; first apply excl_auth_update.
+        destruct t₂; iDestruct "H" as %->; simpl.
+        + iApply "HΨ". iModIntro. iFrame. iRight.
+          iPureIntro. lia.
+        + iApply "HΨ". iModIntro. iFrame.
+          iPureIntro. lia.
+      - wp_apply (with_lock_spec _ (own γ₂ (◯E false)) (λ _, own γ₂ (◯E true)) with "[] [$Hγ₂◯ $Hlock]"); last (iIntros "_ Hγ₂◯"; by iFrame).
+        iIntros (Ψ) "!> [(%t₁ & %t₂ & %z & Hℓz & Hγ₁● & Hγ₂● & H) Hγ₂◯] HΨ".
+        wp_load. wp_pures. wp_store.
+        iCombine "Hγ₂● Hγ₂◯" gives %->%excl_auth_agree_L.
+        iMod (own_update_2 _ _ _ (●E true ⋅ ◯E true) with "Hγ₂● Hγ₂◯") as "[Hγ₂● Hγ₂◯]"; first apply excl_auth_update.
+        destruct t₁; iDestruct "H" as %->; simpl.
+        + iApply "HΨ". iModIntro. iFrame. iLeft.
+          iPureIntro. lia.
+        + iApply "HΨ". iModIntro. iFrame.
+          iPureIntro. lia.
+      - iIntros (v1 v2) "[Hγ₁◯ Hγ₂◯] !>". wp_pures. clear v1 v2.
+        wp_apply (acquire_spec with "Hlock") as "[[%o Ho] (%t₁ & %t₂ & %z & Hℓz & Hγ₁● & Hγ₂● & H)]".
+        iCombine "Hγ₁● Hγ₁◯" gives %->%excl_auth_agree_L.
+        iCombine "Hγ₂● Hγ₂◯" gives %->%excl_auth_agree_L.
+        wp_pures. wp_load. iModIntro.
+        by iApply "HΦ".
+      Qed.
   End test.
 End test.
