@@ -50,6 +50,11 @@ Definition acquire : val :=
 Definition release : val :=
   λ: "l", Fst "l" <- ! (Fst "l") + #1.
 
+Definition with_lock (l : expr) (e : expr) : expr :=
+  acquire l;;
+  let: "v" := e in
+  release l;; "v".
+
 (* ================================================================= *)
 (** ** Representation Predicates *)
 
@@ -266,4 +271,60 @@ Proof.
   iModIntro. by iApply "HΦ".
 Qed.
 
+Lemma with_lock_spec α β γ δ l e I P Q :
+  {{{ I ∗ P }}} e {{{ v, RET v; I ∗ Q v }}}
+  ⊢ {{{ is_lock α β γ δ l I ∗ P }}} with_lock l e {{{ v, RET v; Q v }}}.
+Proof.
+  iIntros "#He %Φ !> [#Hlock HP] HΦ".
+  rewrite /with_lock. wp_bind (acquire _)%E.
+  wp_apply (acquire_spec with "Hlock").
+  iIntros "[Hlocked HI]". wp_pures.
+  wp_apply ("He" with "[$HP $HI]").
+  iIntros (v) "[HI HQ]". wp_pures. wp_bind (release l)%E.
+  wp_apply (release_spec with "[$Hlock $HI $Hlocked]").
+  iIntros "_". wp_pures. by iApply "HΦ".
+Qed.
 End proofs.
+
+From exercises Require Import structured_conc.
+
+Module test.
+  Local Definition par_add_mul : expr :=
+    let: "l" := ref #2 in
+    let: "lock" := mk_lock #() in
+    (with_lock "lock" ("l" <- !"l" + #3)) ||| (with_lock "lock" ("l" <- !"l" * #3));;
+    acquire "lock";;
+    !"l".
+
+  Section test.
+    Context `{!heapGS Σ, !inG Σ (excl_authR nat), !inG Σ (authR (gset_disjR natR)), !inG Σ (authR (max_natR))}.
+    Context `{!spawnG Σ, !inG Σ (excl_authR boolO)}.
+    Let N := nroot .@ "ticket_lock".
+
+    Local Definition par_inv (ℓ : loc) (γ₁ γ₂ : gname) : iProp Σ :=
+      (* tᵢ represents thread 1 completeing. *)
+      ∃ (t₁ t₂ : bool) (z : Z),
+      ℓ ↦ #z ∗ own γ₁ (●E t₁) ∗ own γ₂ (●E t₂) ∗
+      match t₁, t₂ with
+      | false, false => ⌜z = 2%Z⌝
+      | true,  false => ⌜z = 5%Z⌝
+      | false, true  => ⌜z = 6%Z⌝
+      | true,  true  => ⌜z = 15%Z⌝ ∨ ⌜z = 9%Z⌝
+      end.
+
+    Local Lemma par_add_mul_spec :
+      {{{ True }}} par_add_mul {{{ (z : Z), RET #z; ⌜z = 15%Z⌝ ∨ ⌜z = 9%Z⌝ }}}.
+    Proof.
+      iIntros (Φ) "_ HΦ". rewrite /par_add_mul.
+      wp_alloc ℓ as "Hℓ". wp_pures.
+      iMod (own_alloc ((●E false) ⋅ (◯E false))) as (γ₁) "[Hγ₁● Hγ₁◯]"; first apply excl_auth_valid.
+      iMod (own_alloc ((●E false) ⋅ (◯E false))) as (γ₂) "[Hγ₂● Hγ₂◯]"; first apply excl_auth_valid.
+      iAssert (par_inv ℓ γ₁ γ₂) with "[Hℓ Hγ₁● Hγ₂●]" as "HI"; first by iFrame.
+      wp_apply (mk_lock_spec with "HI") as (α β γ δ lock) "#Hlock".
+      wp_pures.
+      Search par.
+      (* wp_apply (par_spec) *)
+      (* TODO: I need to use actual iris par. *)
+    Admitted.
+  End test.
+End test.
