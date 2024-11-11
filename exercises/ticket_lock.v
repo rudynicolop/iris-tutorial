@@ -271,7 +271,7 @@ Proof.
   iModIntro. by iApply "HΦ".
 Qed.
 
-Lemma with_lock_spec α β γ δ l e I P Q :
+Lemma with_lock_spec [α β γ δ l e] I P Q :
   {{{ I ∗ P }}} e {{{ v, RET v; I ∗ Q v }}}
   ⊢ {{{ is_lock α β γ δ l I ∗ P }}} with_lock l e {{{ v, RET v; Q v }}}.
 Proof.
@@ -286,7 +286,7 @@ Proof.
 Qed.
 End proofs.
 
-From exercises Require Import structured_conc.
+From iris.heap_lang Require Import lib.par.
 
 Module test.
   Local Definition par_add_mul : expr :=
@@ -299,7 +299,6 @@ Module test.
   Section test.
     Context `{!heapGS Σ, !inG Σ (excl_authR nat), !inG Σ (authR (gset_disjR natR)), !inG Σ (authR (max_natR))}.
     Context `{!spawnG Σ, !inG Σ (excl_authR boolO)}.
-    Let N := nroot .@ "ticket_lock".
 
     Local Definition par_inv (ℓ : loc) (γ₁ γ₂ : gname) : iProp Σ :=
       (* tᵢ represents thread 1 completeing. *)
@@ -322,9 +321,13 @@ Module test.
       iAssert (par_inv ℓ γ₁ γ₂) with "[Hℓ Hγ₁● Hγ₂●]" as "HI"; first by iFrame.
       wp_apply (mk_lock_spec with "HI") as (α β γ δ lock) "#Hlock".
       wp_pures.
-      Search par.
-      (* wp_apply (par_spec) *)
-      (* TODO: I need to use actual iris par. *)
+      About wp_par.
+      wp_apply (wp_par
+      (λ _, own γ₁ (◯E true))%I
+      (λ _, own γ₂ (◯E true))%I
+      with "[Hγ₁◯] [Hγ₂◯] [HΦ]").
+      - wp_apply (with_lock_spec _ (own γ₁ (◯E false)) (λ _, own γ₁ (◯E true)) with "[] [$Hγ₁◯ $Hlock]"); last (iIntros "_ Hγ₁◯"; by iFrame).
+        iIntros (Ψ) "[(%t₁ & %t₂ & %z & H)]".
     Admitted.
   End test.
 End test.
