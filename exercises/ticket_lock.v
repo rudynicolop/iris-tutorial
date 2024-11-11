@@ -93,15 +93,15 @@ Qed.
   _issued_. A thread will need to have been issued ticket [x] in order
   to wait for the first counter to become [x].
 *)
-Definition issued (γ : gname) (x : nat) : iProp Σ :=
-  own γ (◯ GSet {[ x ]}).
+Definition issued (γ δ : gname) (x : nat) : iProp Σ :=
+  own γ (◯ GSet {[ x ]}) ∗ own δ (◯ MaxNat (x + 1)).
 
 Definition lock_inv (α β γ δ : gname) (lo ln : loc) (P : iProp Σ) : iProp Σ :=
   ∃ (o n : nat),
   ⌜o ≤ n⌝ ∗ lo ↦ #o ∗ ln ↦ #n ∗
-  own γ (● GSet (list_to_set (seq o (n - o)))) ∗
+  own γ (● GSet (set_seq o (n - o))) ∗
   own α (●E o) ∗ own β (● MaxNat o) ∗ own δ (● MaxNat n) ∗
-  (issued γ o (* locked *) ∨ P ∗ locked_by α o (* unlocked *)).
+  (issued γ δ o (* locked *) ∨ P ∗ locked_by α o (* unlocked *)).
 
 Definition is_lock (α β γ δ : gname) (l : val) (P : iProp Σ) : iProp Σ :=
   ∃ lo ln : loc, ⌜l = (#lo, #ln)%V⌝ ∗ inv N (lock_inv α β γ δ lo ln P).
@@ -115,7 +115,7 @@ Proof.
   iIntros (Φ) "HP HΦ". wp_lam.
   wp_alloc ln as "Hln". wp_alloc lo as "Hlo".
   iMod (own_alloc (●E 0 ⋅ ◯E 0)) as (α) "[Hα● Hα◯]"; first apply excl_auth_valid.
-  iMod (own_alloc (● GSet (list_to_set (seq 0 (0 - 0))) ⋅ ◯ GSet (list_to_set (seq 0 (0 - 0))))) as (γ) "[Hγ● Hγ◯]".
+  iMod (own_alloc (● GSet (set_seq 0 (0 - 0)) ⋅ ◯ GSet (set_seq 0 (0 - 0)))) as (γ) "[Hγ● Hγ◯]".
   { by rewrite auth_auth_valid /=. }
   iMod (own_alloc (● MaxNat 0)) as (β) "Hβ●".
   { by rewrite auth_auth_valid. }
@@ -128,17 +128,17 @@ Proof.
 Qed.
 
 Lemma wait_spec α β γ δ l P x :
-  {{{ is_lock α β γ δ l P ∗ issued γ x }}}
+  {{{ is_lock α β γ δ l P ∗ issued γ δ x }}}
     wait #x l
   {{{ RET #(); locked α ∗ P }}}.
 Proof.
-  iIntros (Φ) "[(%lo & %ln & -> & #HInv) Hγ◯x] HΦ".
+  iIntros (Φ) "[(%lo & %ln & -> & #HInv) [Hγ◯x #Hδ◯x]] HΦ".
   iLöb as "IH". wp_lam. wp_pures. wp_bind (! _)%E.
   iInv "HInv" as (o n) "(>%Hon & >Hlo & >Hln & >Hγ● & >Hα● & >Hβ● & >Hδ● & H)" "Hclose".
   iCombine "Hγ● Hγ◯x" gives %Hvalid.
   rewrite auth_both_valid_discrete in Hvalid.
   destruct Hvalid as [Hsub Hvalid].
-  rewrite gset_disj_included singleton_subseteq_l elem_of_list_to_set elem_of_seq in Hsub.
+  rewrite gset_disj_included singleton_subseteq_l elem_of_set_seq in Hsub.
   assert (o ≤ x < n) as Hoxn by lia. wp_load.
   iMod (own_update _ _ (● (MaxNat o) ⋅ ◯ (MaxNat o)) with "Hβ●") as "[Hβ● #Hβ◯o]".
   { apply auth_update_alloc.
@@ -156,7 +156,7 @@ Proof.
     iCombine "Hγ● Hγ◯x" gives %Hvalid'.
     rewrite auth_both_valid_discrete in Hvalid'.
     destruct Hvalid' as [Hsub' Hvalid'].
-    rewrite gset_disj_included singleton_subseteq_l elem_of_list_to_set elem_of_seq in Hsub'.
+    rewrite gset_disj_included singleton_subseteq_l elem_of_set_seq in Hsub'.
     assert (y ≤ x < z) as Hyxz by lia.
     iCombine "Hβ● Hβ◯o" gives %Hvalido.
     rewrite auth_both_valid_discrete max_nat_included /= in Hvalido.
@@ -165,12 +165,12 @@ Proof.
     rewrite auth_both_valid_discrete max_nat_included /= in Hvalidn.
     destruct Hvalidn as [Hnz _].
     assert (x = y) as <- by lia.
-    iDestruct "H" as "[Hissuedx | [HP Hlocked_by]]".
-    + iCombine "Hγ◯x Hissuedx" gives %Hinvalid.
+    iDestruct "H" as "[[Hγ◯x' #Hδ◯x'] | [HP Hlocked_by]]".
+    + iCombine "Hγ◯x Hγ◯x'" gives %Hinvalid.
       rewrite auth_frag_op_valid gset_disj_valid_op in Hinvalid.
       set_solver.
     + iMod ("Hclose" with "[-HΦ HP Hlocked_by]") as "_".
-      { iNext. by iFrame. }
+      { iNext. by iFrame "# ∗". }
       iModIntro. wp_pures.
       iApply "HΦ". by iFrame.
   - wp_pures.
@@ -200,20 +200,18 @@ Proof.
   iInv "HInv" as (y z) "(>%Hyz & >Hlo & >Hln & >Hγ● & >Hα● & >Hβ● & >Hδ● & H)" "Hclose".
   destruct (decide (z = n)%nat) as [-> | H_z_neq_n].
   - wp_cmpxchg_suc.
-    iMod (own_update _ _ (● GSet (list_to_set (seq y (n + 1 - y))) ⋅ ◯ GSet {[n]}) with "Hγ●") as "[Hγ● Hγ◯]".
+    iMod (own_update _ _ (● GSet (set_seq y (n + 1 - y)) ⋅ ◯ GSet {[n]}) with "Hγ●") as "[Hγ● Hγ◯]".
     { apply auth_update_alloc.
       replace (seq y (n + 1 - y)) with (seq y (n - y) ++ [n]).
       2:{ replace (n + 1 - y) with (S (n - y)) by lia.
         rewrite seq_S. f_equal. f_equal. lia. }
-      rewrite list_to_set_app_L /=.
-      replace ({[n]} ∪ ∅) with ({[n]} : gset nat) by set_solver.
-      rewrite union_comm_L.
+      replace (n + 1 - y) with (S (n - y)) by lia.
+      rewrite set_seq_S_end_union_L -Nat.le_add_sub //.
       apply gset_disj_alloc_empty_local_update.
-      rewrite list_to_set_seq.
       replace n with (y + (n - y)) at 1 by lia.
       apply set_seq_S_end_disjoint. }
-    iMod (own_update _ _ (● MaxNat (n + 1)) with "Hδ●") as "Hδ●".
-    { eapply auth_update_auth.
+    iMod (own_update _ _ (● MaxNat (n + 1) ⋅ ◯ MaxNat (n + 1)) with "Hδ●") as "[Hδ● #Hδ◯]".
+    { eapply auth_update_alloc.
       apply max_nat_local_update.
       simpl. lia. }
     iMod ("Hclose" with "[-HΦ Hγ◯]") as "_".
@@ -221,7 +219,7 @@ Proof.
       replace (Z.of_nat (n + 1)) with (Z.of_nat n + 1)%Z by lia.
       iFrame. iPureIntro. lia. }
     iModIntro. wp_pures.
-    wp_apply (wait_spec with "[$HInv $Hγ◯]"); first done.
+    wp_apply (wait_spec with "[$HInv $Hγ◯ $Hδ◯]"); first done.
     iApply "HΦ".
   - wp_cmpxchg_fail; first by intros [= ->%Nat2Z.inj].
     iMod ("Hclose" with "[-HΦ]") as "_".
@@ -248,9 +246,12 @@ Proof.
   { eapply auth_update_auth.
     apply max_nat_local_update.
     simpl. lia. }
-  iDestruct "H" as "[Hγ◯ | [HP' Hα◯o]]".
+  iDestruct "H" as "[[Hγ◯ Hδ◯] | [HP' Hα◯o]]".
   2:{ iCombine "Hα◯ Hα◯o" gives %Hinvalid.
     by rewrite excl_auth_frag_op_valid in Hinvalid. }
+  iCombine "Hδ● Hδ◯" gives %Hvalidzo.
+  rewrite auth_both_valid_discrete max_nat_included /= in Hvalidzo.
+  destruct Hvalidzo as [Hoz _].
   iMod (own_update_2 _ _ _ (●GSet (list_to_set (seq (o + 1) (z - (o + 1))))) with "Hγ● Hγ◯") as "Hγ●".
   { do 2 rewrite list_to_set_seq.
     replace (set_seq (o + 1) (z - (o + 1))) with (set_seq o (z - o) ∖ {[o]} : gset nat).
