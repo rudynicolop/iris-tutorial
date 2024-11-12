@@ -256,18 +256,47 @@ Definition state_inv γ (l : loc) (x : Z) : iProp Σ :=
 *)
 Lemma thread_spec γ l (x : Z) : {{{inv N (state_inv γ l x)}}} #l <- !#l + #1 {{{RET #(); own γ Final}}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros (Φ) "#HInv HΦ".
+  wp_bind (! _)%E.
+  iInv "HInv" as (y) "[>Hly H]" "Hclose". wp_load.
+  iAssert (⌜x =@{Z} y⌝ ∨ ⌜(x<y)%Z⌝)%I as %Hor.
+  { iDestruct "H" as "[[_ ->] | [_ %Hxy]]"; iPureIntro; lia. }
+  iMod ("Hclose" with "[$Hly $H]") as "_".
+  iModIntro. wp_pures.
+  iInv "HInv" as (z) "[>Hlz [[Hγ >->] | [#Hγ >%Hxz]]]" "Hclose".
+  all: wp_store.
+  1: iMod (state_bupd with "Hγ") as "#Hγ".
+  all: iMod ("Hclose" with "[$Hlz]") as "_"; first by (iNext; iRight; iFrame "#"; iPureIntro; lia).
+  all: by iApply "HΦ".
+Qed.
 
 Lemma body_spec l (x : Z) : {{{l ↦ #x}}} (#l <- !#l + #1) ||| (#l <- !#l + #1);; !#l {{{(y : Z), RET #y; ⌜x < y⌝%Z}}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros (Φ) "Hlx HΦ".
+  iMod alloc_Start as (γ) "Hγ".
+  iMod (inv_alloc N _ (state_inv γ l x) with "[$Hlx Hγ]") as "#HInv".
+  { iNext. iLeft. by iFrame. }
+  wp_pures. wp_bind (par _ _).
+  set (Ψ v := (⌜v = #()⌝ ∗ own γ Final)%I).
+  wp_apply (wp_par Ψ Ψ with "[] [] [HΦ]") as (v1 v2) "[[-> #Hγ1] [-> #Hγ2]]".
+  1, 2: wp_apply (thread_spec with "HInv") as "Hγ".
+  1, 2: by iFrame.
+  iNext. wp_pures.
+  iInv "HInv" as (z) ">[Hlz [[Hγ ->] | [#Hγ %Hxz]]]" "Hclose".
+  1: iCombine "Hγ Hγ1" gives %Hinvalid.
+  1: by rewrite /op /cmra_op /= /valid /cmra_valid /= in Hinvalid.
+  wp_load. iMod ("Hclose" with "[$Hlz]") as "_".
+  { iNext. iRight. iFrame "# %". }
+  iModIntro. by iApply "HΦ".
+Qed.
 
 Lemma prog_spec : {{{True}}} prog {{{(y : Z), RET #y; ⌜5 ≤ y⌝%Z}}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros (Φ) "_ HΦ". rewrite /prog.
+  wp_alloc ℓ as "Hℓ". wp_let.
+  wp_apply (body_spec with "Hℓ") as (y) "%Hy".
+  iApply "HΦ". iPureIntro. lia.
+Qed.
 
 End proofs.
 
