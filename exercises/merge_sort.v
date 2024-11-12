@@ -191,6 +191,16 @@ Proof.
       by rewrite Permutation_middle.
 Qed.
 
+Lemma array_split_take (n : Z) (ℓ : loc) (dq : dfrac) (vs : list val) :
+  (0 ≤ n ≤ Zlength vs)%Z →
+  ℓ ↦∗{dq} vs ⊣⊢ ℓ ↦∗{dq} take (Z.to_nat n) vs ∗ (ℓ +ₗ n) ↦∗{dq} drop (Z.to_nat n) vs.
+Proof.
+  intros H.
+  rewrite -{1}(take_drop (Z.to_nat n) vs) array_app take_length_le //.
+  - rewrite Z2Nat.id //. lia.
+  - rewrite Zlength_correct in H. lia.
+Qed.
+
 (**
   With this, we can prove that sort actually sorts the output.
 *)
@@ -222,8 +232,30 @@ Proof.
     simpl. iFrame. iPureIntro.
     repeat split; try done. repeat constructor. }
   rewrite bool_decide_eq_false_2; last lia.
-  wp_pures.
-  Search (_ ↦∗{_} _)%I.
+  wp_pures. wp_bind (par _ _).
+  assert (0 ≤ (S (length l) `quot` 2) ≤ Zlength (x :: l))%Z as Hdumb.
+  { rewrite Zlength_correct /=.
+    rewrite /= -{2}(Nat2Z.id (S (length l))).
+    split.
+    - apply Z.quot_pos; lia.
+    - apply Z.quot_le_upper_bound; lia. }
+  assert (0 ≤ (S (length l) `quot` 2) ≤ Zlength ((λ x0 : Z, #x0) <$> x :: l))%Z as Hdumber.
+  { by rewrite Zlength_correct fmap_length -{3}Zlength_correct. }
+  rewrite (array_split_take (S (length l) `quot` 2)%Z a) //.
+  rewrite (array_split_take (S (length l) `quot` 2)%Z b) //.
+  iDestruct "Ha" as "[Ha_take Ha_drop]".
+  iDestruct "Hb" as "[Hb_take Hb_drop]".
+  repeat rewrite -fmap_take.
+  repeat rewrite -fmap_drop.
+  set (Ψ₁ take_l v := (∃ (l' : list Z) vs, ⌜v = #()⌝ ∗ a ↦∗ ((λ x : Z, #x) <$> l') ∗ b ↦∗ vs ∗ ⌜take_l ≡ₚ l'⌝ ∗ ⌜length vs = length l'⌝)%I).
+  set (Ψ₂ n drop_l v := (∃ (l' : list Z) vs, ⌜v = #()⌝ ∗ (a +ₗ n) ↦∗ ((λ x : Z, #x) <$> l') ∗ (b +ₗ n) ↦∗ vs ∗ ⌜drop_l ≡ₚ l'⌝ ∗ ⌜length vs = length l'⌝)%I).
+  wp_apply (wp_par (Ψ₁ _) (Ψ₂ _ _) with "[Ha_take Hb_take] [Ha_drop Hb_drop] [HΦ]").
+  - iSpecialize ("IH" with "Hb_take Ha_take").
+    rewrite take_length_le //.
+    2:{ rewrite -(Nat2Z.id (length (x :: l))) -{2}(Zlength_correct (x :: l)). lia. }
+    rewrite Z2Nat.id; last lia. 
+    Set Printing Coercions.
+    wp_apply "IH".
 Admitted.
 
 (**
