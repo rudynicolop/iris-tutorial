@@ -218,45 +218,75 @@ Lemma merge_sort_inner_spec (a b : loc) (l : list Z) :
   }}}.
 Proof.
   iIntros (Φ) "(Ha & Hb) HΦ".
-  iLöb as "IH" forall (a b l). wp_rec. wp_pures.
+  remember (Z.of_nat (length l)) as n eqn:Hln.
+  iRevert (Hln). iIntros "Hln".
+  iLöb as "IH" forall (a b l n Φ).
+  iDestruct "Hln" as %->.
+  wp_rec. wp_pures.
   destruct l as [| x l].
   { simpl. wp_pures. iModIntro.
     iApply ("HΦ" $! [] []). simpl. iFrame. iPureIntro.
     repeat split; try done. constructor. }
   rewrite cons_length.
-  destruct (decide (length l ≤ 0)) as [Hlen | Hlen].
+  destruct (decide (length l ≤ 0)) as [Hlen0 | Hlen0].
   { rewrite bool_decide_eq_true_2; last lia.
     wp_pures. iModIntro.
-    destruct l; simpl in Hlen; last lia.
+    destruct l; simpl in Hlen0; last lia.
     iApply ("HΦ" $! [x] [(#x) : val]).
     simpl. iFrame. iPureIntro.
     repeat split; try done. repeat constructor. }
   rewrite bool_decide_eq_false_2; last lia.
   wp_pures. wp_bind (par _ _).
-  assert (0 ≤ (S (length l) `quot` 2) ≤ Zlength (x :: l))%Z as Hdumb.
-  { rewrite Zlength_correct /=.
+  set (q := (S (length l) `quot` 2)%Z).
+  assert (0 ≤ q ≤ Zlength (x :: l))%Z as Hdumb.
+  { rewrite /q Zlength_correct /=.
     rewrite /= -{2}(Nat2Z.id (S (length l))).
     split.
     - apply Z.quot_pos; lia.
     - apply Z.quot_le_upper_bound; lia. }
-  assert (0 ≤ (S (length l) `quot` 2) ≤ Zlength ((λ x0 : Z, #x0) <$> x :: l))%Z as Hdumber.
-  { by rewrite Zlength_correct fmap_length -{3}Zlength_correct. }
-  rewrite (array_split_take (S (length l) `quot` 2)%Z a) //.
-  rewrite (array_split_take (S (length l) `quot` 2)%Z b) //.
+  assert (0 ≤ q ≤ Zlength ((λ x0 : Z, #x0) <$> x :: l))%Z as Hdumber.
+  { by rewrite /q Zlength_correct fmap_length -{3}Zlength_correct. }
+  assert ((S (length l) - q)%Z = length (drop (Z.to_nat q) (x :: l))) as Hdumbdrop.
+  { rewrite drop_length /= Nat2Z.inj_sub; try lia.
+    replace (S (length l)) with (length (x :: l)) by done.
+    rewrite /q -(Nat2Z.id (length (x :: l))) -{2}(Zlength_correct (x :: l)). lia. }
+  assert (q = length (take (Z.to_nat q) (x :: l))) as Hdumbtake.
+  { rewrite take_length_le; first lia.
+    rewrite /q -(Nat2Z.id (length (x :: l))) -{2}(Zlength_correct (x :: l)). lia. }
+  rewrite (array_split_take q a) //.
+  rewrite (array_split_take q b) //.
   iDestruct "Ha" as "[Ha_take Ha_drop]".
   iDestruct "Hb" as "[Hb_take Hb_drop]".
   repeat rewrite -fmap_take.
   repeat rewrite -fmap_drop.
-  set (Ψ₁ take_l v := (∃ (l' : list Z) vs, ⌜v = #()⌝ ∗ a ↦∗ ((λ x : Z, #x) <$> l') ∗ b ↦∗ vs ∗ ⌜take_l ≡ₚ l'⌝ ∗ ⌜length vs = length l'⌝)%I).
-  set (Ψ₂ n drop_l v := (∃ (l' : list Z) vs, ⌜v = #()⌝ ∗ (a +ₗ n) ↦∗ ((λ x : Z, #x) <$> l') ∗ (b +ₗ n) ↦∗ vs ∗ ⌜drop_l ≡ₚ l'⌝ ∗ ⌜length vs = length l'⌝)%I).
-  wp_apply (wp_par (Ψ₁ _) (Ψ₂ _ _) with "[Ha_take Hb_take] [Ha_drop Hb_drop] [HΦ]").
-  - iSpecialize ("IH" with "Hb_take Ha_take").
-    rewrite take_length_le //.
-    2:{ rewrite -(Nat2Z.id (length (x :: l))) -{2}(Zlength_correct (x :: l)). lia. }
-    rewrite Z2Nat.id; last lia. 
-    Set Printing Coercions.
-    wp_apply "IH".
-Admitted.
+  set (Ψ₁ take_l v := (∃ (l' : list Z) vs, ⌜v = #()⌝ ∗ b ↦∗ ((λ x : Z, #x) <$> l') ∗ a ↦∗ vs ∗ ⌜StronglySorted Z.le l'⌝  ∗ ⌜take_l ≡ₚ l'⌝ ∗ ⌜length vs = length l'⌝)%I).
+  set (Ψ₂ drop_l v := (∃ (l' : list Z) vs, ⌜v = #()⌝ ∗ (b +ₗ q) ↦∗ ((λ x : Z, #x) <$> l') ∗ (a +ₗ q) ↦∗ vs ∗ ⌜StronglySorted Z.le l'⌝  ∗ ⌜drop_l ≡ₚ l'⌝ ∗ ⌜length vs = length l'⌝)%I).
+  wp_apply (wp_par (Ψ₁ (take (Z.to_nat q) (x :: l))) (Ψ₂ (drop (Z.to_nat q) (x :: l))) with "[Ha_take Hb_take] [Ha_drop Hb_drop] [HΦ]").
+  - clear Ψ₂.
+    wp_apply ("IH" with "Hb_take Ha_take"); last done.
+    iIntros (l' vs) "(Hb & Ha & %Hl' & %Hperm & %Hlen)".
+    rewrite /Ψ₁. by iFrame "∗ %".
+  - clear Ψ₁. wp_pures.
+    wp_apply ("IH" with "Hb_drop Ha_drop"); last done.
+    iIntros (l' vs) "(Hb & Ha & %Hl' & %Hperm & %Hlen)".
+    rewrite /Ψ₂. by iFrame "∗ %".
+  - iIntros (v1 v2) "[HΨ₁ HΨ₂]".
+    rewrite /Ψ₁. iDestruct "HΨ₁" as "(%l1' & %vs1' & -> & Hb1 & Ha1 & %HSS1 & %Hperm1 & %Hlen1)".
+    rewrite /Ψ₂. iDestruct "HΨ₂" as "(%l2' & %vs2' & -> & Hb2 & Ha2 & %HSS2 & %Hperm2 & %Hlen2)".
+    iNext. wp_pures.
+    replace (S (length l) - q)%Z with (Z.of_nat (length l2')) by by rewrite -(Permutation_length Hperm2). 
+    replace q with (Z.of_nat (length l1')) by by rewrite -(Permutation_length Hperm1).
+    iCombine "Ha1 Ha2" as "Ha". rewrite -{2}Hlen1 -array_app.
+    wp_apply (merge_spec with "[$Hb1 $Hb2 $Ha]"); first iFrame "%".
+    1: iPureIntro; rewrite app_length; congruence.
+    iIntros (l') "(Hb1 & Hb2 & Ha & %HSS & %Hperm)".
+    iCombine "Hb1 Hb2" as "Hb".
+    rewrite -(fmap_length (λ x: Z, #x) l1') -array_app -fmap_app.
+    iApply ("HΦ" with "[$Ha $Hb]"). iPureIntro.
+    rewrite map_length (Permutation_length Hperm).
+    repeat split; try done.
+    by rewrite -Hperm -Hperm1 -Hperm2 take_drop.
+Qed.
 
 (**
   Finally, we lift this result to the outer [merge_sort] function.
