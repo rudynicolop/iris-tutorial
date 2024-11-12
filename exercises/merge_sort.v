@@ -100,7 +100,41 @@ Lemma merge_spec (a1 a2 b : loc) (l1 l2 : list Z) (l : list val) :
     ⌜l1 ++ l2 ≡ₚ l⌝
   }}}.
 Proof.
-  (* exercise *)
+  iIntros (Φ) "(Ha1 & Ha2 & Hb & Hl1 & Hl2 & Hlen) HΦ".
+  iLöb as "IH" forall (a1 a2 b l1 l2 l).
+  iDestruct "Hl1" as %Hl1.
+  iDestruct "Hl2" as %Hl2.
+  iDestruct "Hlen" as %Hlen.
+  wp_rec. wp_pures.
+  destruct l1 as [| x1 l1].
+  { rewrite bool_decide_eq_true_2 //. wp_pures.
+    wp_apply (wp_array_copy_to with "[$Hb $Ha2]"); first by f_equal.
+    1: by rewrite fmap_length.
+    iIntros "[Hb Ha2]". iApply "HΦ". by iFrame "% ∗". }
+  rewrite bool_decide_eq_false_2 //. wp_pures.
+  destruct l2 as [| x2 l2].
+  { rewrite bool_decide_eq_true_2 //. wp_pures. simpl in * |-.
+    wp_apply (wp_array_copy_to with "[$Hb $Ha1]"); first lia.
+    1: by rewrite fmap_length.
+    iIntros "[Hb Ha1]". iApply "HΦ". iFrame "∗ %".
+    by rewrite app_nil_r. }
+  rewrite bool_decide_eq_false_2 //. wp_pures.
+  destruct l as [| x l]; simpl in Hlen; first lia.
+  apply StronglySorted_inv in Hl1 as [Hx1 Hl1].
+  apply StronglySorted_inv in Hl2 as [Hx2 Hl2].
+  injection Hlen as Hlen.
+  do 2 rewrite {1}fmap_cons.
+  iDestruct (array_cons with "Ha1") as "[Ha1_hd Ha1_tl]".
+  iDestruct (array_cons with "Ha2") as "[Ha2_hd Ha2_tl]".
+  iDestruct (array_cons with "Hb") as "[Hb_hd Hb_tl]".
+  wp_load. wp_let. wp_load. wp_pures.
+  destruct (decide (x1 ≤ x2)%Z) as [Hx1_le_x2 | Hx1_nle_x2].
+  - rewrite bool_decide_eq_true_2 //. wp_pures.
+    wp_store. wp_pures.
+    iCombine "Ha2_hd Ha2_tl" as "Ha2".
+    rewrite -array_cons.
+    replace (Z.of_nat (S (length l1)) - 1)%Z with (Z.of_nat (length l1)) by lia.
+    iSpecialize ("IH" $! (a1 +ₗ 1) a2 (b +ₗ 1) l1 (x2 :: l2) l with "Ha1_tl").
 Admitted.
 
 (**
