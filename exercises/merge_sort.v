@@ -207,7 +207,23 @@ Lemma merge_sort_inner_spec (a b : loc) (l : list Z) :
     ⌜length vs = length l'⌝
   }}}.
 Proof.
-  (* exercise *)
+  iIntros (Φ) "(Ha & Hb) HΦ".
+  iLöb as "IH" forall (a b l). wp_rec. wp_pures.
+  destruct l as [| x l].
+  { simpl. wp_pures. iModIntro.
+    iApply ("HΦ" $! [] []). simpl. iFrame. iPureIntro.
+    repeat split; try done. constructor. }
+  rewrite cons_length.
+  destruct (decide (length l ≤ 0)) as [Hlen | Hlen].
+  { rewrite bool_decide_eq_true_2; last lia.
+    wp_pures. iModIntro.
+    destruct l; simpl in Hlen; last lia.
+    iApply ("HΦ" $! [x] [(#x) : val]).
+    simpl. iFrame. iPureIntro.
+    repeat split; try done. repeat constructor. }
+  rewrite bool_decide_eq_false_2; last lia.
+  wp_pures.
+  Search (_ ↦∗{_} _)%I.
 Admitted.
 
 (**
