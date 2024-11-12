@@ -173,12 +173,23 @@ Proof.
     replace (Z.of_nat (S (length l2)) - 1)%Z with (Z.of_nat (length l2)) by lia.
     replace (S (length l1)) with (length (x1 :: l1)) by reflexivity.
     wp_apply ("IH" with "Ha1 Ha2_tl Hb_tl"); try done.
+    { iPureIntro. simpl. lia. }
     iIntros (zs) "(Ha1 & Ha2_tl & Hb_tl & %Hzs & %Hperm)".
-    iCombine "Ha1_hd Ha1_tl" as "Ha1". rewrite -array_cons.
+    iCombine "Ha2_hd Ha2_tl" as "Ha2". rewrite -array_cons.
     iCombine "Hb_hd Hb_tl" as "Hb". rewrite -array_cons.
     do 2 rewrite -fmap_cons. iApply "HΦ". iFrame.
     iPureIntro. split.
-Admitted.
+    + apply SSorted_cons; first done.
+      rewrite -(perm_Forall_rew _ _ _ Hperm) Forall_app.
+      split; last done.
+      constructor; first lia.
+      apply StronglySorted_inv in Hl1 as [Hx1 Hl1].
+      apply List.Forall_impl with (2:=Hl1). lia.
+    + simpl in *.
+      rewrite -Hperm perm_swap.
+      apply perm_skip.
+      by rewrite Permutation_middle.
+Qed.
 
 (**
   With this, we can prove that sort actually sorts the output.
