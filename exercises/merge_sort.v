@@ -74,6 +74,24 @@ Definition merge_sort : val :=
 (* ================================================================= *)
 (** ** Specifications *)
 
+Section perm.
+  Context [A : Type].
+  Variable P : A → Prop.
+
+  Lemma perm_Forall (xs ys : list A) :
+    xs ≡ₚ ys → Forall P xs → Forall P ys.
+  Proof.
+    induction 1; inversion 1; subst; auto.
+    inv H3. auto.
+  Qed.
+
+  Lemma perm_Forall_rew (xs ys : list A) :
+    xs ≡ₚ ys → Forall P xs ↔ Forall P ys.
+  Proof.
+    split; apply perm_Forall; done.
+  Qed.
+End perm.
+
 Section proofs.
 Context `{!heapGS Σ, !spawnG Σ}.
 
@@ -120,8 +138,6 @@ Proof.
     by rewrite app_nil_r. }
   rewrite bool_decide_eq_false_2 //. wp_pures.
   destruct l as [| x l]; simpl in Hlen; first lia.
-  apply StronglySorted_inv in Hl1 as [Hx1 Hl1].
-  apply StronglySorted_inv in Hl2 as [Hx2 Hl2].
   injection Hlen as Hlen.
   do 2 rewrite {1}fmap_cons.
   iDestruct (array_cons with "Ha1") as "[Ha1_hd Ha1_tl]".
@@ -130,11 +146,38 @@ Proof.
   wp_load. wp_let. wp_load. wp_pures.
   destruct (decide (x1 ≤ x2)%Z) as [Hx1_le_x2 | Hx1_nle_x2].
   - rewrite bool_decide_eq_true_2 //. wp_pures.
+    apply StronglySorted_inv in Hl1 as [Hx1 Hl1].
     wp_store. wp_pures.
-    iCombine "Ha2_hd Ha2_tl" as "Ha2".
-    rewrite -array_cons.
+    iCombine "Ha2_hd Ha2_tl" as "Ha2". rewrite -array_cons.
+    rewrite -fmap_cons.
     replace (Z.of_nat (S (length l1)) - 1)%Z with (Z.of_nat (length l1)) by lia.
-    iSpecialize ("IH" $! (a1 +ₗ 1) a2 (b +ₗ 1) l1 (x2 :: l2) l with "Ha1_tl").
+    replace (S (length l2)) with (length (x2 :: l2)) by reflexivity.
+    wp_apply ("IH" with "Ha1_tl Ha2 Hb_tl"); try done.
+    iIntros (zs) "(Ha1_tl & Ha2 & Hb_tl & %Hzs & %Hperm)".
+    iCombine "Ha1_hd Ha1_tl" as "Ha1". rewrite -array_cons.
+    iCombine "Hb_hd Hb_tl" as "Hb". rewrite -array_cons.
+    do 2 rewrite -fmap_cons. iApply "HΦ". iFrame.
+    iPureIntro. split.
+    + apply SSorted_cons; first done.
+      rewrite -(perm_Forall_rew _ _ _ Hperm) Forall_app.
+      split; first done.
+      constructor; first done.
+      apply StronglySorted_inv in Hl2 as [Hx2 Hl2].
+      apply List.Forall_impl with (2:=Hl2). lia.
+    + simpl. by apply perm_skip.
+  - rewrite bool_decide_eq_false_2 //.
+    apply StronglySorted_inv in Hl2 as [Hx2 Hl2].
+    wp_store. wp_pures.
+    iCombine "Ha1_hd Ha1_tl" as "Ha1". rewrite -array_cons.
+    rewrite -fmap_cons.
+    replace (Z.of_nat (S (length l2)) - 1)%Z with (Z.of_nat (length l2)) by lia.
+    replace (S (length l1)) with (length (x1 :: l1)) by reflexivity.
+    wp_apply ("IH" with "Ha1 Ha2_tl Hb_tl"); try done.
+    iIntros (zs) "(Ha1 & Ha2_tl & Hb_tl & %Hzs & %Hperm)".
+    iCombine "Ha1_hd Ha1_tl" as "Ha1". rewrite -array_cons.
+    iCombine "Hb_hd Hb_tl" as "Hb". rewrite -array_cons.
+    do 2 rewrite -fmap_cons. iApply "HΦ". iFrame.
+    iPureIntro. split.
 Admitted.
 
 (**
