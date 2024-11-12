@@ -300,7 +300,19 @@ Lemma merge_sort_spec (a : loc) (l : list Z) :
     ⌜l ≡ₚ l'⌝
   }}}.
 Proof.
-  (* exercise *)
-Admitted.
-
+  iIntros (Φ) "Ha HΦ". wp_lam. wp_pures.
+  destruct (decide ((length l) = 0)) as [->%nil_length_inv | Hneq].
+  - rewrite bool_decide_eq_true_2 //.
+    wp_pures.
+    iApply ("HΦ" with "[$Ha]"). iPureIntro.
+    split; constructor.
+  - rewrite bool_decide_eq_false_2.
+    2:{ intros [= Heq]. by rewrite -Nat2Z.inj_0 Nat2Z.inj_iff in Heq. }
+    wp_pures. wp_alloc b as "Hb"; first lia.
+    rewrite Nat2Z.id. wp_pures.
+    wp_apply (wp_array_copy_to with "[$Hb $Ha]") as "[Hb Ha]"; first by rewrite replicate_length.
+    1: by rewrite map_length. wp_pures.
+    wp_apply (merge_sort_inner_spec with "[$Ha $Hb]") as (l' vs) "(Ha & Hb & %HSS & %Hperm & %Hlen)".
+    iApply ("HΦ" with "[$Ha]"). iPureIntro. done.
+Qed.
 End proofs.
