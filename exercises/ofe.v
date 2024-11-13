@@ -49,8 +49,8 @@ CoFixpoint fun2stream (f : nat → nat) : stream :=
 
 Lemma fun2stream_nth (f : nat → nat) (n : nat) : nth (fun2stream f) n = f n.
 Proof.
-  (* exercise *)
-Admitted.
+  induction n as [| n IH] in f |- *; simpl; auto.
+Qed.
 
 Section ofe.
 
@@ -87,8 +87,19 @@ Local Instance stream_dist_instance : Dist stream := λ n s1 s2,
 Lemma stream_ofe_mixin : OfeMixin stream.
 Proof.
   split.
-  (* exercise *)
-Admitted.
+  - intros x y.
+    rewrite /equiv /dist /stream_equiv_instance /stream_dist_instance.
+    firstorder eauto.
+  - rewrite /dist /stream_dist_instance.
+    intros n. split.
+    + split.
+    + intros x y. firstorder.
+    + intros x y z Hxy Hyz i Hin.
+      rewrite Hxy // Hyz //.
+  - rewrite /dist /stream_dist_instance.
+    intros n m x y H Nmn i Him.
+    rewrite H //. lia.
+Qed.
 
 (**
   We can now package this together into an OFE.
