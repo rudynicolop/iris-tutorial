@@ -123,6 +123,7 @@ Global Program Instance stream_cofe : Cofe streamO := {|
   compl c := fun2stream (λ i, nth (c i) i);
 |}.
 Next Obligation.
+  Print chain.
   intros n [c Hc] i Hi; simpl.
   rewrite fun2stream_nth.
   specialize (Hc i n Hi i).
@@ -222,8 +223,10 @@ Fixpoint sapp (l : list nat) (s : stream) : stream :=
 *)
 Global Instance sapp_ne (l : list nat) : NonExpansive (sapp l).
 Proof.
-  (* exercise *)
-Admitted.
+  induction l as [| n l IHl]; simpl.
+  - apply _.
+  - intros i s1 s2 Hs. apply SCons_ne, IHl, Hs.
+Qed.
 
 Global Instance sapp_proper (l : list nat) : Proper ((≡) ==> (≡)) (sapp l).
 Proof. apply ne_proper, _. Qed.
@@ -390,13 +393,14 @@ Qed.
 Lemma stream_map_nth (f : nat → nat) (s : stream) (n : nat) :
   nth (stream_map f s) n = f (nth s n).
 Proof.
-  (* exercise *)
-Admitted.
+  induction n as [| n IHn] in s |- *; rewrite /= //.
+Qed.
 
 Global Instance stream_map_ne (f : nat → nat) : NonExpansive (stream_map f).
 Proof.
-  (* exercise *)
-Admitted.
+  intros i s1 s2 Hs12 j Hij.
+  rewrite !stream_map_nth Hs12 //.
+Qed.
 
 (**
   If we now wanted to create a stream of all the powers of 2, we would
@@ -423,11 +427,18 @@ Definition power2 : stream :=
   that [power2_helper] and [power2] satisfy respective fixpoint
   equations.
 *)
+Lemma power2_helper_nth (n i : nat) :
+  nth (power2_helper n) i = (2 ^ i)%nat * n.
+Proof.
+  induction i as [| i IHi] in n |- *; rewrite /= //.
+  rewrite IHi. lia.
+Qed.
 Lemma power2_helper_unfold (n : nat) :
   power2_helper n ≡ SCons n (stream_map (λ n, n * 2) (power2_helper n)).
 Proof.
-  (* exercise *)
-Admitted.
+  intros [| i]; rewrite /= //.
+  rewrite stream_map_nth !power2_helper_nth. lia.
+Qed.
 
 Lemma power2_unfold :
   power2 ≡ SCons 1 (stream_map (λ n, n * 2) power2).
